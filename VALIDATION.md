@@ -14,6 +14,9 @@
 - H1 whole-section rendering and D6 spatial navigation checked in the browser.
 - PIEZO1 overlay, high-to-low navigation, point annotation, confirmed status, outer ellipse and inner polygon checked through UI.
 - Reload retained annotation, classification, outer/inner geometry and expression exposure; expression overlay returns to hidden.
+- JSON fixture import succeeded; invalid JSON project was rejected while preserving the annotation count.
+- Notes and annotator persisted after reload. Undo and redo of classification worked.
+- JSON, CSV and GeoJSON generated nonempty downloadable blobs with visible retry links and no browser console errors. The in-app browser did not emit a download event, so final OS file-save completion was not verified there.
 - Test labels live in a separate `?qa=1` browser storage namespace and are not research annotations or included in the repository.
 - WebMCP read and section navigation registered and returned current visible state; invalid section rejected without changing the section.
 

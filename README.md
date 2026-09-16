@@ -66,7 +66,11 @@ npm test
 
 从原 CIC 工作区重新整理数据：`python scripts/prepare_data.py --workspace /path/to/CIC`，需 Pillow。此脚本读取原表，审计坐标，按 SHA256 核对并复制原 JPEG；不重跑分析、不覆盖原数据。`dist/data/manifest.json` 记录来源表相对路径和校验和。
 
-GitHub Pages 使用 `.github/workflows/pages.yml`，从 `main` 发布 `dist/`。测试覆盖坐标缩放还原、两处已审核书签的最近 spot、五张原图哈希、全部 spot 坐标、项目恢复及导入冲突、内外轮廓和 CSV 转义。
+GitHub Pages 使用 **Deploy from a branch**，发布分支为 `codex/pages` 的根目录；`main` 保留完整代码，`dist/` 是发布源。自定义 Actions 任务在首次发布时因账户账单锁定无法启动，已改用成功验证的静态分支发布。内置 Pages 构建与部署成功。
+
+后续修改经检查并提交到 `main` 后，在 PowerShell 运行 `./scripts/publish.ps1`，脚本会测试、上传代码、将 `dist/` 同步到静态分支并请求发布。不覆盖远端历史、不自动提交未审阅文件。需要已登录的 Git 和 GitHub CLI。
+
+测试覆盖坐标缩放还原、两处已审核书签的最近 spot、五张原图哈希、全部 spot 坐标、项目恢复及导入冲突、内外轮廓和 CSV 转义。
 
 ## 数据来源与署名
 
