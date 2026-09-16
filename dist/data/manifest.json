@@ -1,0 +1,296 @@
+{
+  "schemaVersion": 1,
+  "coordinateSystem": "zero-based original image pixels; x right, y down",
+  "source": {
+    "title": "Spatial deconvolution of HER2-positive Breast cancer delineates tumor-associated cell type interactions",
+    "url": "https://doi.org/10.5281/zenodo.4751624",
+    "license": "CC-BY-4.0"
+  },
+  "metrics": [
+    {
+      "key": "PIEZO1_logCPM",
+      "label": "PIEZO1",
+      "unit": "log2(1 + counts/library_size × 10⁶)"
+    },
+    {
+      "key": "ERBB2_logCPM",
+      "label": "ERBB2 / HER2",
+      "unit": "log2(1 + counts/library_size × 10⁶)"
+    },
+    {
+      "key": "HER2_AMPLICON_UCell",
+      "label": "HER2 扩增子活性",
+      "unit": "UCell score"
+    },
+    {
+      "key": "CIC_intrinsic_score",
+      "label": "CIC 相关转录评分",
+      "unit": "原分析固定签名分数；不是形态 CIC 数量"
+    },
+    {
+      "key": "CDH1_logCPM",
+      "label": "CDH1",
+      "unit": "log2(1 + counts/library_size × 10⁶)"
+    },
+    {
+      "key": "TJP1_logCPM",
+      "label": "TJP1",
+      "unit": "log2(1 + counts/library_size × 10⁶)"
+    },
+    {
+      "key": "CORTICAL_CONTRACTILITY_UCell",
+      "label": "皮质收缩相关程序",
+      "unit": "UCell score"
+    },
+    {
+      "key": "JUNCTION_UCell",
+      "label": "细胞连接相关程序",
+      "unit": "UCell score"
+    },
+    {
+      "key": "joint_high",
+      "label": "HER2 高 / CIC 评分高联合区域",
+      "unit": "沿用原分析残差分组；1 = 联合高值"
+    }
+  ],
+  "sections": [
+    {
+      "id": "H1",
+      "patient": "H",
+      "width": 9301,
+      "height": 9869,
+      "sha256": "7ad6ea7a5c9bb63b7b10a0cf49cd0ec6efb3c0a0481483844b4e428f13bc0d4b",
+      "image": "data/H1.jpg",
+      "thumbnail": "data/H1_thumb.jpg",
+      "spots": "data/H1_spots.json",
+      "spotCount": 613,
+      "bookmarks": [],
+      "rois": [
+        {
+          "id": "H1_ROI_01",
+          "x": 2498,
+          "y": 3004,
+          "width": 1024,
+          "height": 1024
+        },
+        {
+          "id": "H1_ROI_02",
+          "x": 5496,
+          "y": 3004,
+          "width": 1024,
+          "height": 1024
+        },
+        {
+          "id": "H1_ROI_03",
+          "x": 2498,
+          "y": 6509,
+          "width": 1024,
+          "height": 1024
+        },
+        {
+          "id": "H1_ROI_04",
+          "x": 5496,
+          "y": 6509,
+          "width": 1024,
+          "height": 1024
+        }
+      ]
+    },
+    {
+      "id": "D6",
+      "patient": "D",
+      "width": 9286,
+      "height": 9885,
+      "sha256": "5c415e2b25766bbfd8155621ef86d2e713c86b7f8c9cb20acdbda14f48b6c21f",
+      "image": "data/D6.jpg",
+      "thumbnail": "data/D6_thumb.jpg",
+      "spots": "data/D6_spots.json",
+      "spotCount": 315,
+      "bookmarks": [
+        {
+          "id": "D6_A01",
+          "x": 2604,
+          "y": 7322,
+          "note": "原有歧义书签；未确认完整包裹，不纳入 CIC 计数"
+        }
+      ],
+      "rois": [
+        {
+          "id": "D6_ROI_01",
+          "x": 2494,
+          "y": 3009,
+          "width": 1024,
+          "height": 1024
+        },
+        {
+          "id": "D6_ROI_02",
+          "x": 5488,
+          "y": 3009,
+          "width": 1024,
+          "height": 1024
+        },
+        {
+          "id": "D6_ROI_03",
+          "x": 2494,
+          "y": 6520,
+          "width": 1024,
+          "height": 1024
+        },
+        {
+          "id": "D6_ROI_04",
+          "x": 5488,
+          "y": 6520,
+          "width": 1024,
+          "height": 1024
+        }
+      ]
+    },
+    {
+      "id": "E1",
+      "patient": "E",
+      "width": 9322,
+      "height": 9922,
+      "sha256": "310c4994da1b9d824c7a3121a877ecbbae8e3689d99389b324faa63cb879f43d",
+      "image": "data/E1.jpg",
+      "thumbnail": "data/E1_thumb.jpg",
+      "spots": "data/E1_spots.json",
+      "spotCount": 587,
+      "bookmarks": [],
+      "rois": [
+        {
+          "id": "E1_ROI_01",
+          "x": 2504,
+          "y": 3020,
+          "width": 1024,
+          "height": 1024
+        },
+        {
+          "id": "E1_ROI_02",
+          "x": 5509,
+          "y": 3020,
+          "width": 1024,
+          "height": 1024
+        },
+        {
+          "id": "E1_ROI_03",
+          "x": 2504,
+          "y": 6544,
+          "width": 1024,
+          "height": 1024
+        },
+        {
+          "id": "E1_ROI_04",
+          "x": 5509,
+          "y": 6544,
+          "width": 1024,
+          "height": 1024
+        }
+      ]
+    },
+    {
+      "id": "F1",
+      "patient": "F",
+      "width": 9307,
+      "height": 9855,
+      "sha256": "da8d070c7c389a0a56393482674f32f87bf752c950cda2a8d7421970bc60fbb1",
+      "image": "data/F1.jpg",
+      "thumbnail": "data/F1_thumb.jpg",
+      "spots": "data/F1_spots.json",
+      "spotCount": 691,
+      "bookmarks": [
+        {
+          "id": "F1_A01",
+          "x": 5724,
+          "y": 3188,
+          "note": "原有歧义书签；相邻、重叠与双核未排除，不纳入 CIC 计数"
+        }
+      ],
+      "rois": [
+        {
+          "id": "F1_ROI_01",
+          "x": 2500,
+          "y": 3000,
+          "width": 1024,
+          "height": 1024
+        },
+        {
+          "id": "F1_ROI_02",
+          "x": 5500,
+          "y": 3000,
+          "width": 1024,
+          "height": 1024
+        },
+        {
+          "id": "F1_ROI_03",
+          "x": 2500,
+          "y": 6500,
+          "width": 1024,
+          "height": 1024
+        },
+        {
+          "id": "F1_ROI_04",
+          "x": 5500,
+          "y": 6500,
+          "width": 1024,
+          "height": 1024
+        }
+      ]
+    },
+    {
+      "id": "G1",
+      "patient": "G",
+      "width": 9310,
+      "height": 9910,
+      "sha256": "0c28824442c1cc92274e86f7b38e7f18a61e19bdd9ccfefec3128d34ef29eabc",
+      "image": "data/G1.jpg",
+      "thumbnail": "data/G1_thumb.jpg",
+      "spots": "data/G1_spots.json",
+      "spotCount": 441,
+      "bookmarks": [],
+      "rois": [
+        {
+          "id": "G1_ROI_01",
+          "x": 2501,
+          "y": 3017,
+          "width": 1024,
+          "height": 1024
+        },
+        {
+          "id": "G1_ROI_02",
+          "x": 5502,
+          "y": 3017,
+          "width": 1024,
+          "height": 1024
+        },
+        {
+          "id": "G1_ROI_03",
+          "x": 2501,
+          "y": 6536,
+          "width": 1024,
+          "height": 1024
+        },
+        {
+          "id": "G1_ROI_04",
+          "x": 5502,
+          "y": 6536,
+          "width": 1024,
+          "height": 1024
+        }
+      ]
+    }
+  ],
+  "provenance": [
+    {
+      "path": "HER2_CIC_reanalysis_v2/results/24_HER2ST_spatial_validation/tables/HER2ST_spot_scores.tsv.gz",
+      "sha256": "cecba0fe49b3965ab1668863f9ddfbcd16c8ff3b16e3d00a18d8dbc057e23aeb"
+    },
+    {
+      "path": "HER2_CIC_reanalysis_v2/results/76_HER2ST_PIEZO1_spatial_niche_audit/tables/01_PIEZO1_spot_values.tsv.gz",
+      "sha256": "d3d8ced397c40e0ff0e930fa3293f0bc980468daad28b9fc732fc58c9c1d48c2"
+    },
+    {
+      "path": "HER2_CIC_reanalysis_v2/results/76_HER2ST_PIEZO1_spatial_niche_audit/tables/13_joint_niche_spot_assignments.tsv.gz",
+      "sha256": "258ffb07406aec217b893def74e87cee679ea9c5bb7dab8c22a2f6992e44130d"
+    }
+  ]
+}

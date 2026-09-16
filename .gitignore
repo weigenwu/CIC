@@ -1,0 +1,6 @@
+node_modules/
+.sites-runtime/
+__pycache__/
+qa/
+*.log
+.env*
