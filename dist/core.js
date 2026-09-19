@@ -8,6 +8,18 @@ export const COLORS = {
   probable_CIC: "#e7a734",
   not_CIC: "#a4aab4",
 };
+export const ARROW_COLORS = { red: "#e03535", blue: "#1875e5" };
+// A point stores the arrow tip in source pixels; its display size is independent of zoom.
+export const arrowColor = (a) => a.markerColor || "red";
+export function arrowCounts(annotations) {
+  const counts = { red: 0, blue: 0, total: 0 };
+  for (const a of annotations) {
+    if (a.geometry.type !== "point") continue;
+    counts[arrowColor(a)]++;
+    counts.total++;
+  }
+  return counts;
+}
 export const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
 export const screenToImage = (p, v) => [
   (p[0] - v.x) / v.scale,
@@ -163,6 +175,8 @@ export function validateProject(data, knownSections) {
     )
       fail("标注编号重复或无效");
     seen.add(a.id);
+    if (a.markerColor !== undefined && !Object.hasOwn(ARROW_COLORS, a.markerColor))
+      fail("箭头颜色无效");
     const s = sections.get(a.section);
     if (
       !s ||

@@ -1,6 +1,9 @@
 import {
   LABELS,
   COLORS,
+  ARROW_COLORS,
+  arrowColor,
+  arrowCounts,
   clamp,
   screenToImage,
   bounds,
@@ -11,7 +14,7 @@ import {
   toCSV,
   validateProject,
   mergeProjects,
-} from "./core.js";
+} from "./core.js?v=20260919-arrows";
 const $ = (s) => document.querySelector(s),
   esc = (s) =>
     String(s ?? "").replace(
@@ -42,6 +45,7 @@ let manifest,
   selected = null,
   selectedSpot = null,
   tool = "pan",
+  markerColor = "red",
   drawRole = "new",
   draft = null,
   showMarks = true,
@@ -58,6 +62,7 @@ let view = { x: 0, y: 0, scale: 1 },
   currentURL = null,
   storageBlocked = false,
   multiTabConflict = false;
+let stageSize = { width: 0, height: 0 }, focusBeforeFullscreen = false;
 const canvas = $("#canvas"),
   ctx = canvas.getContext("2d"),
   stage = $("#stage"),
@@ -157,6 +162,8 @@ function renderMode() {
       ? "形态阅片 · 此片已看过表达"
       : "形态阅片 · 表达未显示";
   $("#review-mode").classList.toggle("exposed", exposed);
+  $("#focus-overlay").setAttribute("aria-pressed", String(overlay()));
+  $("#focus-overlay").textContent = overlay() ? "隐藏表达" : "表达叠层";
 }
 function requestDraw() {
   if (!frame)
@@ -168,9 +175,39 @@ function requestDraw() {
 function resize() {
   const r = stage.getBoundingClientRect(),
     dpr = window.devicePixelRatio || 1;
+  if (stageSize.width && stageSize.height) {
+    view.x += (r.width - stageSize.width) / 2;
+    view.y += (r.height - stageSize.height) / 2;
+  }
+  stageSize = { width: r.width, height: r.height };
   canvas.width = Math.round(r.width * dpr);
   canvas.height = Math.round(r.height * dpr);
   requestDraw();
+}
+function setFocusView(enabled) {
+  document.body.classList.toggle("focus-view", enabled);
+  $("#focus-view").textContent = enabled ? "退出专注" : "专注阅片";
+  $("#focus-view").setAttribute("aria-pressed", String(enabled));
+  stage.focus({ preventScroll: true });
+}
+async function toggleFullscreen() {
+  if (document.fullscreenElement) {
+    await document.exitFullscreen();
+    return;
+  }
+  focusBeforeFullscreen = document.body.classList.contains("focus-view");
+  setFocusView(true);
+  try {
+    await document.documentElement.requestFullscreen();
+  } catch {
+    toast("此浏览器未进入系统全屏，已打开铺满网页的专注阅片。");
+  }
+}
+function chooseArrowColor(color) {
+  markerColor = color;
+  document.querySelectorAll("[data-marker-color]").forEach((b) =>
+    b.setAttribute("aria-pressed", String(b.dataset.markerColor === color)));
+  setTool("point");
 }
 function fit() {
   if (!section) return;
@@ -241,6 +278,41 @@ function paintGeometry(g, color, dashed = false) {
   ctx.fill();
   ctx.setLineDash([]);
 }
+function paintArrow(g, color, selected) {
+  ctx.save();
+  ctx.translate(g.x, g.y);
+  ctx.scale(1 / view.scale, 1 / view.scale);
+  ctx.beginPath();
+  ctx.moveTo(-30, -30);
+  ctx.lineTo(-6, -6);
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 6;
+  ctx.lineCap = "round";
+  ctx.stroke();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(-4, -15);
+  ctx.lineTo(-15, -4);
+  ctx.closePath();
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = "#fff";
+  ctx.stroke();
+  ctx.fillStyle = color;
+  ctx.fill();
+  if (selected) {
+    ctx.beginPath();
+    ctx.arc(-30, -30, 6, 0, Math.PI * 2);
+    ctx.fillStyle = "#fff";
+    ctx.fill();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+  ctx.restore();
+}
 function draw() {
   const dpr = window.devicePixelRatio || 1;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -296,9 +368,12 @@ function draw() {
   }
   if (showMarks)
     for (const a of annotations()) {
-      paintGeometry(a.geometry, COLORS[a.label]);
+      const isArrow = a.geometry.type === "point";
+      if (isArrow) paintArrow(a.geometry, ARROW_COLORS[arrowColor(a)], a.id === selected);
+      else paintGeometry(a.geometry, COLORS[a.label]);
       if (a.outer) paintGeometry(a.outer, "#52bfe0", true);
       a.inner.forEach((g) => paintGeometry(g, "#e592ca", true));
+      if (isArrow) continue;
       const b = bounds(a.geometry);
       ctx.font = `${11 / view.scale}px sans-serif`;
       const tx = b.x,
@@ -374,6 +449,9 @@ function renderSections() {
     ...manifest.sections,
     ...project.sections.filter((s) => s.id.startsWith("local_")),
   ];
+  $("#focus-section").innerHTML = all.map((s) =>
+    `<option value="${esc(s.id)}">${esc(s.name || s.id)}</option>`).join("");
+  $("#focus-section").value = section?.id || "";
   $("#section-list").innerHTML = all
     .map(
       (s) =>
@@ -391,27 +469,25 @@ function renderPanels() {
   const list = annotations(),
     a = current();
   $("#total-badge").textContent = project.annotations.length;
-  $("#definite-count").textContent = list.filter(
-    (a) => a.label === "definite_CIC",
-  ).length;
-  $("#probable-count").textContent = list.filter(
-    (a) => a.label === "probable_CIC",
-  ).length;
-  $("#negative-count").textContent = list.filter(
-    (a) => a.label === "not_CIC",
-  ).length;
+  const counts = arrowCounts(list);
+  $("#red-count").textContent = counts.red;
+  $("#blue-count").textContent = counts.blue;
+  $("#arrow-count").textContent = counts.total;
+  $("#focus-counts").innerHTML = `<span class="red-text">↘ 红 ${counts.red}</span><span class="blue-text">↘ 蓝 ${counts.blue}</span><strong>合计 ${counts.total}</strong>`;
+  $("#delete-selected").disabled = !a;
   $("#undo").disabled = !undoStack.length;
   $("#redo").disabled = !redoStack.length;
   const filtered = list.filter(
     (a) =>
       $("#annotation-filter").value === "all" ||
-      a.label === $("#annotation-filter").value,
+      a.label === $("#annotation-filter").value ||
+      (a.geometry.type === "point" && arrowColor(a) === $("#annotation-filter").value),
   );
   $("#annotation-list").innerHTML = filtered.length
     ? filtered
         .map(
           (a) =>
-            `<button class="annotation-item ${a.id === selected ? "active" : ""}" data-id="${esc(a.id)}"><span><i class="dot" style="background:${COLORS[a.label]}"></i>${esc(a.id.slice(-6))}<small>${center(
+            `<button class="annotation-item ${a.id === selected ? "active" : ""}" data-id="${esc(a.id)}"><span><i class="dot" style="background:${a.geometry.type === "point" ? ARROW_COLORS[arrowColor(a)] : COLORS[a.label]}"></i>${esc(a.id.slice(-6))}<small>${center(
               a.geometry,
             )
               .map((n) => Math.round(n))
@@ -434,7 +510,7 @@ function renderPanels() {
     );
   if (!a) {
     $("#selection-panel").innerHTML =
-      '<div class="empty-note"><span>⊙</span><strong>从一处结构开始</strong><p>放大切片，按 P 点击候选位置，<br>或按 E 拖出结构范围。</p></div>';
+      '<div class="empty-note"><span>↘</span><strong>一个箭头，一处结构</strong><p>按 R 选红色，B 选蓝色，<br>单击放置箭头，每个计 1。</p></div>';
     renderSpotDetail();
     return;
   }
@@ -455,6 +531,11 @@ function renderPanels() {
       .join(
         " / ",
       )} px · ${esc(a.annotator || "未填写标注者")}</p><div class="inner-tools"><button data-role="structure">重画范围</button><button data-role="outer">外细胞轮廓${a.outer ? " ✓" : ""}</button><button data-role="inner">＋ 内细胞 (${a.inner.length})</button></div>${a.inner.length || a.outer ? '<button id="clear-contours" class="small">移除内外轮廓</button>' : ""}<p class="micro">选定后用椭圆或多边形绘制。青色 = 外细胞，粉色 = 内细胞。</p><label class="field-label" for="notes">形态依据 / 备注</label><textarea id="notes" maxlength="10000" placeholder="完整包裹、独立细胞核、无法排除的重叠…">${esc(a.notes)}</textarea><p class="micro">${project.exposures[a.section] ? "此切片已接触表达信息" : "本工具中此切片尚未显示表达信息"}</p>`;
+  if (a.geometry.type === "point") {
+    $("#selection-panel").insertAdjacentHTML("afterbegin", '<label class="field-label" for="marker-color">所选箭头颜色（计数 1）</label><select id="marker-color"><option value="red">红色</option><option value="blue">蓝色</option></select>');
+    $("#marker-color").value = arrowColor(a);
+    $("#marker-color").onchange = (e) => update({ markerColor: e.target.value });
+  }
   $("#confidence").value = a.confidence;
   $("#confidence").onchange = (e) => update({ confidence: e.target.value });
   $("#inner-count").onchange = (e) =>
@@ -520,10 +601,10 @@ function setTool(next, keepRole = false) {
     next === "polygon"
       ? "逐点勾画 · Enter 完成 · Esc 取消"
       : next === "point"
-        ? "单击添加疑似 CIC · 空格拖动"
+        ? `单击添加${markerColor === "red" ? "红" : "蓝"}箭头 · 每个计 1 · 空格拖动`
         : next === "ellipse"
           ? "拖动圈选结构 · 空格拖动"
-          : "滚轮缩放 · 空格拖动 · P 快速标记";
+          : "滚轮缩放 · 空格拖动 · R 红箭头 / B 蓝箭头 · Tab 专注阅片";
   draw();
 }
 function addGeometry(g) {
@@ -549,6 +630,7 @@ function addGeometry(g) {
         confidence: "medium",
         innerCount: 1,
         geometry: g,
+        ...(g.type === "point" ? { markerColor } : {}),
         outer: null,
         inner: [],
         notes: "",
@@ -566,6 +648,13 @@ function addGeometry(g) {
 }
 function hitAnnotation(p) {
   for (const a of [...annotations()].reverse()) {
+    if (a.geometry.type === "point") {
+      const dx = (p[0] - a.geometry.x) * view.scale,
+        dy = (p[1] - a.geometry.y) * view.scale,
+        t = clamp(-(dx + dy) / 60, 0, 1);
+      if (Math.hypot(dx + 30 * t, dy + 30 * t) <= 9) return a;
+      continue;
+    }
     const b = bounds(a.geometry),
       pad = 10 / view.scale;
     if (
@@ -1030,6 +1119,8 @@ async function exportCSV() {
       "source_height",
       "source_sha256",
       "geometry_json",
+      "marker_color",
+      "arrow_count",
       "outer_cell_json",
       "inner_cells_json",
       "nearest_spot_id",
@@ -1068,6 +1159,8 @@ async function exportCSV() {
         source_height: s.height,
         source_sha256: s.sha256,
         geometry_json: JSON.stringify(a.geometry),
+        marker_color: a.geometry.type === "point" ? arrowColor(a) : "",
+        arrow_count: a.geometry.type === "point" ? 1 : 0,
         outer_cell_json: JSON.stringify(a.outer),
         inner_cells_json: JSON.stringify(a.inner),
         nearest_spot_id: n?.spot.id || "",
@@ -1113,7 +1206,7 @@ function exportGeoJSON() {
     features.push({
       type: "Feature",
       geometry: geometryToGeoJSON(a.geometry),
-      properties: { ...props, role: "structure" },
+      properties: { ...props, role: "structure", marker_color: a.geometry.type === "point" ? arrowColor(a) : null, arrow_count: a.geometry.type === "point" ? 1 : 0 },
     });
     if (a.outer)
       features.push({
@@ -1159,6 +1252,26 @@ document
         )),
   );
 $("#undo").onclick = () => undo();
+document.querySelectorAll("[data-marker-color]").forEach((b) =>
+  b.onclick = () => chooseArrowColor(b.dataset.markerColor));
+$("#delete-selected").onclick = deleteSelected;
+$("#focus-section").onchange = (e) => loadSection(e.target.value);
+$("#focus-overlay").onclick = () => {
+  $("#overlay-toggle").checked = !overlay();
+  renderSpatial();
+};
+$("#focus-view").onclick = async () => {
+  if (document.fullscreenElement) {
+    focusBeforeFullscreen = false;
+    await document.exitFullscreen();
+  } else setFocusView(!document.body.classList.contains("focus-view"));
+};
+$("#fullscreen").onclick = toggleFullscreen;
+document.addEventListener("fullscreenchange", () => {
+  const full = !!document.fullscreenElement;
+  $("#fullscreen").textContent = full ? "⛶ 退出全屏" : "⛶ 全屏";
+  if (!full) setFocusView(focusBeforeFullscreen);
+});
 $("#redo").onclick = () => undo(true);
 $("#fit").onclick = fit;
 $("#native").onclick = () =>
@@ -1349,6 +1462,7 @@ document.addEventListener("keydown", (e) => {
     return;
   }
   if (e.key === "Escape") {
+    if (!draft && !drag && !document.fullscreenElement) setFocusView(false);
     draft = null;
     drag = null;
     setTool("pan");
@@ -1365,6 +1479,11 @@ document.addEventListener("keydown", (e) => {
   if (next)
     setTool(next, drawRole !== "new" && ["ellipse", "polygon"].includes(next));
   if (key === "f") fit();
+  if (key === "r" || key === "b") chooseArrowColor(key === "r" ? "red" : "blue");
+  if (e.key === "Tab" && e.target === stage && !e.shiftKey) {
+    e.preventDefault();
+    $("#focus-view").click();
+  }
   if (key === "h") $("#toggle-marks").click();
   if (key === "?") $("#help-dialog").showModal();
   if (["1", "2", "3"].includes(key) && current())
@@ -1414,6 +1533,7 @@ async function registerTools() {
       execute: () => ({
         section: section.id,
         annotations: project.annotations.length,
+        arrows: arrowCounts(annotations()),
         labels: Object.fromEntries(
           Object.keys(LABELS).map((l) => [
             l,

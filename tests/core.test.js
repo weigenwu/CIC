@@ -11,6 +11,8 @@ import {
   validateProject,
   mergeProjects,
   toCSV,
+  arrowCounts,
+  arrowColor,
 } from "../dist/core.js";
 const manifest = JSON.parse(
   fs.readFileSync(new URL("../dist/data/manifest.json", import.meta.url)),
@@ -170,4 +172,23 @@ test("CSV preserves Unicode, newlines and quotes; neutralizes formula text", () 
   assert.ok(s.includes('"\'=SUM(1,2)"'));
   assert.ok(s.includes('"-1"'));
   assert.ok(s.includes('中文,""quoted""\nnew'));
+});
+
+test("one arrow counts once, colors survive import and merge, legacy points keep their tip", () => {
+  const p = make(), original = structuredClone(p.annotations[0]);
+  p.annotations[0].innerCount = 4;
+  p.annotations[0].inner = [{type: "point", x: 2604, y: 7322}];
+  p.annotations.push({...original, id: "blue", markerColor: "blue", label: "definite_CIC"});
+  p.annotations.push({...original, id: "outline", geometry: {type: "ellipse", x: 2604, y: 7322, rx: 40, ry: 40}});
+  const copy = validateProject(JSON.parse(JSON.stringify(p)), sections);
+  assert.equal(arrowColor(copy.annotations[0]), "red");
+  assert.deepEqual(arrowCounts(copy.annotations), {red: 1, blue: 1, total: 2});
+  assert.deepEqual(geometryToGeoJSON(copy.annotations[0].geometry), {type: "Point", coordinates: [2604, 7322]});
+  assert.deepEqual(arrowCounts(mergeProjects(copy, copy).annotations), {red: 1, blue: 1, total: 2});
+  copy.annotations[1].markerColor = "red";
+  assert.deepEqual(arrowCounts(copy.annotations), {red: 2, blue: 0, total: 2});
+  copy.annotations.splice(0, 1);
+  assert.deepEqual(arrowCounts(copy.annotations), {red: 1, blue: 0, total: 1});
+  copy.annotations[0].markerColor = "purple";
+  assert.throws(() => validateProject(copy, sections), /箭头颜色无效/);
 });
