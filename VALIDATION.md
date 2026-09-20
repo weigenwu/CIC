@@ -6,7 +6,7 @@
 - 2,647 spots, no duplicated spot IDs within section; all pixel coordinates inside original canvas.
 - PIEZO1 and base-table x/y matched to < 1e-6 px during dataset preparation.
 - D6_A01 nearest center: 10x26, approximately 58.6 px. F1_A01: 21x12, approximately 76.9 px. Both remain bookmarks, not annotations.
-- `npm test`: eight tests passed, covering coordinate transforms, data provenance, nearest centers, import validation, geometry roundtrip, conservative merge/conflicts, CSV protection and arrow color/count compatibility.
+- `npm test`: nine tests passed, covering coordinate transforms, data provenance, nearest centers, import validation, geometry roundtrip, conservative merge/conflicts, CSV protection, arrow color/count compatibility and the pixel ruler.
 - `npm run check`: JavaScript syntax passed.
 
 ## Browser checks
@@ -26,6 +26,14 @@
 - Focus mode uses the full 1280 x 720 page canvas; native fullscreen entered successfully at 1707 x 1067. Exiting restores side panels; magnification stays at 100% through layout changes.
 - Floating controls switch sections and toggle the expression layer while fullscreen. No browser console errors observed. QA marks use `?qa=1` only.
 - Point coordinates and GeoJSON Point remain the arrow tip; inner cells and added outlines do not multiply arrow counts. Legacy points default to red without rewriting coordinates or classification.
+
+## Viewer navigation update (2026-09-20)
+
+- Referenced QuPath's official viewing documentation. The app retains its own annotation data and color shortcuts.
+- Browser: one dock switches library, annotation and spatial panels; closing it expands the same canvas. At a 1253 x 912 viewport the canvas measured 993 x 769 with the dock and 1253 x 769 without it.
+- Checked overview dragging, 200% preset, Shift+Up to 280%, native-pixel view and direction-key navigation. At 100%, Right moved the sampled center from x=4642.5 to 4841.1, matching 20% of the 993-pixel canvas width; y was unchanged.
+- Focus-mode center samples agreed within 0.5 source pixel at 100% (pointer rounding). Native fullscreen, section switching and opening the dock inside fullscreen all returned with the correct counts and panel state.
+- Spatial toggle works in its tab and toolbar. Test arrows were undone; no research annotations were created. No browser console errors observed.
 
 ## Limits
 

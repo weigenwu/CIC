@@ -13,6 +13,7 @@ import {
   toCSV,
   arrowCounts,
   arrowColor,
+  pixelRuler,
 } from "../dist/core.js";
 const manifest = JSON.parse(
   fs.readFileSync(new URL("../dist/data/manifest.json", import.meta.url)),
@@ -49,6 +50,15 @@ const make = () => ({
   ],
   exposures: {},
   reviewed: {},
+});
+test("pixel ruler remains legible at every viewer zoom and labels original pixels", () => {
+  for (const scale of [0.001, 0.02, 0.067, 0.25, 0.5, 1, 2, 4, 12]) {
+    const ruler = pixelRuler(scale);
+    assert.ok(ruler.width >= 39.9 && ruler.width <= 100.001);
+    assert.ok(Math.abs(ruler.width / scale - ruler.pixels) < 1e-9);
+  }
+  assert.deepEqual(pixelRuler(1), {pixels: 100, width: 100});
+  assert.deepEqual(pixelRuler(4), {pixels: 20, width: 80});
 });
 test("original-image coordinates survive pan and zoom", () => {
   for (const scale of [0.02, 0.137, 1, 2.75, 12]) {
