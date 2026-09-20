@@ -21,6 +21,11 @@ export function arrowCounts(annotations) {
   return counts;
 }
 export const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+export function pixelRuler(scale) {
+  const target = 100 / scale, power = 10 ** Math.floor(Math.log10(target));
+  const pixels = [5, 2, 1].find((n) => n * power <= target) * power;
+  return { pixels, width: pixels * scale };
+}
 export const screenToImage = (p, v) => [
   (p[0] - v.x) / v.scale,
   (p[1] - v.y) / v.scale,

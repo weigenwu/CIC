@@ -4,6 +4,7 @@ import {
   ARROW_COLORS,
   arrowColor,
   arrowCounts,
+  pixelRuler,
   clamp,
   screenToImage,
   bounds,
@@ -14,7 +15,7 @@ import {
   toCSV,
   validateProject,
   mergeProjects,
-} from "./core.js?v=20260919-arrows";
+} from "./core.js?v=20260920-viewer";
 const $ = (s) => document.querySelector(s),
   esc = (s) =>
     String(s ?? "").replace(
@@ -185,10 +186,40 @@ function resize() {
   requestDraw();
 }
 function setFocusView(enabled) {
+  if (!enabled && document.fullscreenElement) focusBeforeFullscreen = false;
   document.body.classList.toggle("focus-view", enabled);
   $("#focus-view").textContent = enabled ? "退出专注" : "专注阅片";
   $("#focus-view").setAttribute("aria-pressed", String(enabled));
+  updateDockButton();
   stage.focus({ preventScroll: true });
+}
+function updateDockButton() {
+  const open = !document.body.classList.contains("dock-collapsed") && !document.body.classList.contains("focus-view");
+  $("#toggle-dock").setAttribute("aria-pressed", String(open));
+}
+function showPanel(name) {
+  document.querySelectorAll("[data-panel]").forEach((b) => {
+    const active = b.dataset.panel === name;
+    b.setAttribute("aria-selected", String(active));
+    b.tabIndex = active ? 0 : -1;
+    $("#pane-" + b.dataset.panel).hidden = !active;
+  });
+}
+function setupDock() {
+  const dock = $("#analysis-dock"), left = $(".left-panel"), right = $(".right-panel");
+  const spatial = document.createElement("section");
+  spatial.className = "spatial-panel";
+  spatial.append($("#overlay-toggle").closest(".section-block"));
+  for (const [name, pane] of [["library", left], ["annotations", right], ["spatial", spatial]]) {
+    pane.id = "pane-" + name;
+    pane.setAttribute("role", "tabpanel");
+    pane.setAttribute("aria-labelledby", "tab-" + name);
+    dock.append(pane);
+  }
+  // Reuse the existing controls; neither projects nor annotations move storage.
+  $(".viewer-footer").prepend($(".zoom-controls"));
+  $(".viewer-footer").append($("#focus-counts"));
+  showPanel("library");
 }
 async function toggleFullscreen() {
   if (document.fullscreenElement) {
@@ -419,6 +450,10 @@ function draw() {
   }
   ctx.restore();
   $("#zoom-label").textContent = Math.round(view.scale * 100) + "%";
+  $("#zoom-preset").value = [0.25, 0.5, 1, 2, 4].find((v) => Math.abs(view.scale - v) < 0.001) || "";
+  const ruler = pixelRuler(view.scale);
+  $("#pixel-ruler span").style.width = ruler.width + "px";
+  $("#pixel-ruler b").textContent = num(ruler.pixels) + " px";
   drawMini();
 }
 function drawMini() {
@@ -475,6 +510,7 @@ function renderPanels() {
   $("#arrow-count").textContent = counts.total;
   $("#focus-counts").innerHTML = `<span class="red-text">↘ 红 ${counts.red}</span><span class="blue-text">↘ 蓝 ${counts.blue}</span><strong>合计 ${counts.total}</strong>`;
   $("#delete-selected").disabled = !a;
+  $("#edit-selected").disabled = !a;
   $("#undo").disabled = !undoStack.length;
   $("#redo").disabled = !redoStack.length;
   const filtered = list.filter(
@@ -762,7 +798,7 @@ canvas.addEventListener(
 canvas.addEventListener("dblclick", (e) => {
   if (tool === "pan") zoom(2, screen(e));
 });
-mini.addEventListener("click", (e) => {
+function navigateOverview(e) {
   if (!ready) return;
   const r = mini.getBoundingClientRect(),
     s = Math.min(mini.width / section.width, mini.height / section.height),
@@ -773,6 +809,15 @@ mini.addEventListener("click", (e) => {
     clamp((y - (mini.height - section.height * s) / 2) / s, 0, section.height),
     view.scale,
   );
+}
+mini.addEventListener("pointerdown", (e) => {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  mini.setPointerCapture(e.pointerId);
+  navigateOverview(e);
+});
+mini.addEventListener("pointermove", (e) => {
+  if (e.buttons === 1) navigateOverview(e);
 });
 function sortedSpots() {
   const p = $("#pathology-filter").value,
@@ -1252,6 +1297,38 @@ document
         )),
   );
 $("#undo").onclick = () => undo();
+document.querySelectorAll("[data-panel]").forEach((b) => {
+  b.onclick = () => showPanel(b.dataset.panel);
+  b.onkeydown = (e) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const tabs = [...document.querySelectorAll("[data-panel]")], index = tabs.indexOf(b);
+    const next = e.key === "Home" ? 0 : e.key === "End" ? tabs.length - 1 : (index + (e.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+    showPanel(tabs[next].dataset.panel);
+    tabs[next].focus();
+  };
+});
+$("#toggle-dock").onclick = () => {
+  if (document.body.classList.contains("focus-view")) {
+    setFocusView(false);
+    document.body.classList.remove("dock-collapsed");
+  } else document.body.classList.toggle("dock-collapsed");
+  updateDockButton();
+};
+$("#close-dock").onclick = () => $("#toggle-dock").click();
+$("#edit-selected").onclick = () => {
+  if (!current()) return;
+  setFocusView(false);
+  document.body.classList.remove("dock-collapsed");
+  updateDockButton();
+  showPanel("annotations");
+  $("#pane-annotations").scrollTop = 0;
+};
+$("#zoom-preset").onchange = (e) => {
+  if (e.target.value) zoom(Number(e.target.value) / view.scale);
+  stage.focus();
+};
 document.querySelectorAll("[data-marker-color]").forEach((b) =>
   b.onclick = () => chooseArrowColor(b.dataset.markerColor));
 $("#delete-selected").onclick = deleteSelected;
@@ -1461,6 +1538,7 @@ document.addEventListener("keydown", (e) => {
     undo(e.shiftKey);
     return;
   }
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key === "Escape") {
     if (!draft && !drag && !document.fullscreenElement) setFocusView(false);
     draft = null;
@@ -1469,13 +1547,23 @@ document.addEventListener("keydown", (e) => {
     return;
   }
   if (!ready) return;
+  if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key) && e.target === stage) {
+    e.preventDefault();
+    if (e.shiftKey && ["ArrowUp", "ArrowDown"].includes(e.key)) zoom(e.key === "ArrowUp" ? 1.4 : 1 / 1.4);
+    else {
+      view.x += (e.key === "ArrowLeft" ? 1 : e.key === "ArrowRight" ? -1 : 0) * stage.clientWidth * 0.2;
+      view.y += (e.key === "ArrowUp" ? 1 : e.key === "ArrowDown" ? -1 : 0) * stage.clientHeight * 0.2;
+      requestDraw();
+    }
+    return;
+  }
   if (e.key === "Enter" && draft?.type === "polygon") {
     e.preventDefault();
     addGeometry(draft);
     return;
   }
   const key = e.key.toLowerCase(),
-    next = { v: "pan", p: "point", e: "ellipse", g: "polygon" }[key];
+    next = { m: "pan", v: "pan", p: "point", e: "ellipse", g: "polygon" }[key];
   if (next)
     setTool(next, drawRole !== "new" && ["ellipse", "polygon"].includes(next));
   if (key === "f") fit();
@@ -1485,6 +1573,7 @@ document.addEventListener("keydown", (e) => {
     $("#focus-view").click();
   }
   if (key === "h") $("#toggle-marks").click();
+  if (e.key === "Enter" && current()) $("#edit-selected").click();
   if (key === "?") $("#help-dialog").showModal();
   if (["1", "2", "3"].includes(key) && current())
     update({ label: Object.keys(LABELS)[Number(key) - 1] });
@@ -1573,6 +1662,7 @@ async function registerTools() {
   }
 }
 async function start() {
+  setupDock();
   manifest = await json("data/manifest.json");
   $("#metric").innerHTML = manifest.metrics
     .map((m) => `<option value="${m.key}">${esc(m.label)}</option>`)

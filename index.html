@@ -9,7 +9,7 @@
       content="HER2ST 五张切片的 CIC 形态标注与空间表达对照工作台。"
     />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="style.css?v=20260919-arrows" />
+    <link rel="stylesheet" href="style.css?v=20260920-viewer" />
   </head>
   <body>
     <header class="topbar">
@@ -26,6 +26,14 @@
       </div>
     </header>
     <main class="workspace">
+      <aside id="analysis-dock" aria-label="阅片面板">
+        <button id="close-dock" aria-label="收起阅片面板" title="收起面板">×</button>
+        <div class="dock-tabs" role="tablist" aria-label="阅片面板标签">
+          <button id="tab-library" role="tab" data-panel="library" aria-controls="pane-library" aria-selected="true">切片</button>
+          <button id="tab-annotations" role="tab" data-panel="annotations" aria-controls="pane-annotations" aria-selected="false" tabindex="-1">标注</button>
+          <button id="tab-spatial" role="tab" data-panel="spatial" aria-controls="pane-spatial" aria-selected="false" tabindex="-1">空间表达</button>
+        </div>
+      </aside>
       <aside class="left-panel">
         <div class="panel-heading">
           <span>切片库</span><span class="eyebrow">HER2ST / 05</span>
@@ -88,7 +96,8 @@
         </div>
         <div class="toolbar" role="toolbar" aria-label="标注工具">
           <div class="tool-group">
-            <button data-tool="pan" class="active" title="平移 V">
+            <button id="toggle-dock" aria-pressed="true" title="显示或收起阅片面板">☰ 面板</button>
+            <button data-tool="pan" class="active" title="移动 M / V">
               ✥ <span>浏览</span><kbd>V</kbd></button
             ><button data-tool="point" title="单击放置箭头 P" aria-label="箭头 P">
               ↘ <span>箭头</span><kbd>P</kbd></button
@@ -107,10 +116,11 @@
             ><button id="redo" title="重做 Ctrl+Shift+Z">↷</button
             ><button id="toggle-marks" title="隐藏标注 H">隐藏标注</button>
             <button id="delete-selected" title="删除所选 Delete" disabled>删除</button>
+            <button id="edit-selected" title="标注属性 Enter" disabled>属性</button>
           </div>
           <div class="tool-group view-tools">
-            <select id="focus-section" class="focus-only" aria-label="切换切片"></select>
-            <button id="focus-overlay" class="focus-only" aria-pressed="false">表达叠层</button>
+            <select id="focus-section" aria-label="切换切片"></select>
+            <button id="focus-overlay" aria-pressed="false">表达叠层</button>
             <button id="focus-view" title="收起面板 Tab" aria-pressed="false">专注阅片</button>
             <button id="fullscreen" title="全屏阅片">⛶ 全屏</button>
           </div>
@@ -121,23 +131,25 @@
           <div id="canvas-hint" class="canvas-hint">
             滚轮缩放 · 空格拖动 · P 箭头 · Tab 专注阅片
           </div>
-          <div id="focus-counts" class="focus-only" role="status" aria-label="当前切片箭头计数"></div>
+          <div id="focus-counts" role="status" aria-label="当前切片箭头计数"></div>
+          <div id="pixel-ruler" title="原图像素标尺，未经物理尺寸校准"><span></span><b></b></div>
           <div class="zoom-controls">
             <button id="zoom-out" aria-label="缩小">−</button
             ><button id="zoom-label">100%</button
             ><button id="zoom-in" aria-label="放大">＋</button><span></span
+            ><select id="zoom-preset" aria-label="显示缩放比例"><option value="">缩放…</option><option value="0.25">25%</option><option value="0.5">50%</option><option value="1">100%</option><option value="2">200%</option><option value="4">400%</option></select
             ><button id="fit">适应窗口</button><button id="native">1:1</button>
           </div>
           <canvas
             id="minimap"
             width="148"
             height="150"
-            aria-label="全图导航，点击跳转"
+            aria-label="全图导航，点击或拖动跳转"
           ></canvas>
         </div>
         <div class="viewer-footer">
           <span id="cursor-position">X —　Y —</span
-          ><span>坐标单位 px · 左上角为原点</span
+          ><span class="coordinate-note">原图像素 px</span
           ><button id="snapshot">导出当前视野 PNG</button>
         </div>
       </section>
@@ -217,20 +229,22 @@
         <button data-close aria-label="关闭">×</button>
       </div>
       <ol>
-        <li>选择切片。滚轮放大，空格 + 拖动移动视野。</li>
+        <li>左侧“切片 / 标注 / 空间表达”切换面板。“面板”按钮可收起侧栏，顶部工具条始终可用。</li>
+        <li>滚轮围绕鼠标位置缩放；M / V 移动工具，或空格 + 拖动；右上角总览图可点击或拖动定位。方向键移动视野，Shift + ↑ / ↓ 缩放。</li>
         <li>
           <b>R / B</b> 选红／蓝箭头，单击结构放置，箭头尖端就是记录位置，每个箭头计 1。<b>P</b> 使用当前颜色；<b>E</b> 拖出椭圆；<b>G</b> 逐点勾画，Enter
           完成，Esc 取消。
         </li>
         <li>
-          新记录默认为“疑似”。右侧可判定为确认或排除，补充内、外细胞轮廓和备注。
+          新记录默认为“疑似”。在“标注”面板可判定为确认或排除，补充内、外细胞轮廓和备注。
         </li>
         <li>
           打开空间表达后，按表达排序跳转到 PIEZO1、ERBB2 等
           spot；再隐藏叠层看清形态。
         </li>
         <li>完成后导出 JSON 备份，CSV 可接回原有空间分析。</li>
-        <li>点击“专注阅片”收起面板，或“全屏”铺满屏幕。浮动工具条可切片、切色、撤销和删除。退出后恢复面板，视野中心和倍率保持。</li>
+        <li>点击“专注阅片”收起面板，或“全屏”铺满屏幕。窄工具条可切片、切色、撤销和删除。选中标记后按 Enter 或“属性”打开标注面板。退出后恢复面板，视野中心和倍率保持。</li>
+        <li>下方可快速切换 25%–400% 显示缩放；100% 表示 1 原图像素对应 1 屏幕 CSS 像素。标尺单位为原图像素，未经物理尺寸校准，不代表显微镜物镜倍数。</li>
       </ol>
       <h3>阅片记录</h3>
       <p>
@@ -259,6 +273,6 @@
       multiple
       hidden
     />
-    <script type="module" src="app.js?v=20260919-arrows"></script>
+    <script type="module" src="app.js?v=20260920-viewer"></script>
   </body>
 </html>
