@@ -9,8 +9,32 @@ export const COLORS = {
   not_CIC: "#a4aab4",
 };
 export const ARROW_COLORS = { red: "#e03535", blue: "#1875e5" };
-// A point stores the arrow tip in source pixels; its display size is independent of zoom.
+// Points retain the target tip; optional tail stores a hand-drawn arrow in source pixels.
 export const arrowColor = (a) => a.markerColor || "red";
+export const arrowTail = (g, scale) => g.tail || [g.x - 30 / scale, g.y - 30 / scale];
+export function arrowHit(g, p, scale, handles = false) {
+  const tail = arrowTail(g, scale), tip = [g.x, g.y];
+  const distance = (q) => Math.hypot(p[0] - q[0], p[1] - q[1]) * scale;
+  if (handles && distance(tip) <= 8) return "tip";
+  if (handles && distance(tail) <= 8) return "tail";
+  const dx = tip[0] - tail[0], dy = tip[1] - tail[1];
+  const t = clamp(((p[0] - tail[0]) * dx + (p[1] - tail[1]) * dy) / (dx * dx + dy * dy || 1), 0, 1);
+  return distance([tail[0] + t * dx, tail[1] + t * dy]) <= 7 ? "move" : null;
+}
+export function editArrow(g, start, p, part, section) {
+  const out = structuredClone(g);
+  if (part === "move") {
+    const dx = clamp(p[0] - start[0], -Math.min(g.x, g.tail[0]), section.width - Math.max(g.x, g.tail[0]));
+    const dy = clamp(p[1] - start[1], -Math.min(g.y, g.tail[1]), section.height - Math.max(g.y, g.tail[1]));
+    out.x += dx; out.y += dy;
+    out.tail = [g.tail[0] + dx, g.tail[1] + dy];
+  } else {
+    const q = [clamp(p[0], 0, section.width), clamp(p[1], 0, section.height)];
+    if (part === "tip") [out.x, out.y] = q;
+    else out.tail = q;
+  }
+  return out;
+}
 export function arrowCounts(annotations) {
   const counts = { red: 0, blue: 0, total: 0 };
   for (const a of annotations) {
@@ -74,6 +98,11 @@ export function geometryToGeoJSON(g) {
 export function validGeometry(g, s) {
   if (!g || !["point", "ellipse", "polygon"].includes(g.type)) return false;
   const f = (n) => typeof n === "number" && Number.isFinite(n);
+  if (g.type === "point" && g.tail !== undefined && (
+    !Array.isArray(g.tail) || g.tail.length !== 2 || !g.tail.every(f) ||
+    g.tail[0] < 0 || g.tail[1] < 0 || g.tail[0] > s.width || g.tail[1] > s.height ||
+    Math.hypot(g.x - g.tail[0], g.y - g.tail[1]) < 0.001
+  )) return false;
   if (g.type === "polygon") {
     if (
       !Array.isArray(g.points) ||

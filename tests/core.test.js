@@ -13,6 +13,9 @@ import {
   toCSV,
   arrowCounts,
   arrowColor,
+  arrowTail,
+  arrowHit,
+  editArrow,
   pixelRuler,
 } from "../dist/core.js";
 const manifest = JSON.parse(
@@ -50,6 +53,35 @@ const make = () => ({
   ],
   exposures: {},
   reviewed: {},
+});
+test("editable arrows preserve target, endpoints, counts and reject malformed tails", () => {
+  const p = make(), g = {type: "point", x: 2604, y: 7322, tail: [2544, 7242]};
+  p.annotations[0].geometry = g;
+  assert.deepEqual(validateProject(JSON.parse(JSON.stringify(p)), sections), p);
+  assert.deepEqual(geometryToGeoJSON(g), {type: "Point", coordinates: [2604, 7322]});
+  assert.deepEqual(arrowCounts(p.annotations), {red: 1, blue: 0, total: 1});
+  for (const scale of [0.25, 1, 4]) {
+    const view = {x: -14, y: 93, scale};
+    const pointer = screenToImage(imageToScreen([2574, 7282], view), view);
+    assert.equal(arrowHit(g, pointer, scale), "move");
+    assert.equal(arrowHit(g, [2604, 7322], scale, true), "tip");
+    assert.equal(arrowHit(g, g.tail, scale, true), "tail");
+    assert.equal(arrowHit(g, [2800, 7100], scale), null);
+    assert.deepEqual(arrowTail(g, scale), g.tail);
+  }
+  const s = sections.find((s) => s.id === "D6");
+  const moved = editArrow(g, [2574, 7282], [2674, 7242], "move", s);
+  assert.deepEqual(moved, {type: "point", x: 2704, y: 7282, tail: [2644, 7202]});
+  assert.deepEqual(editArrow(g, [0, 0], [-99999, -99999], "move", s), {type: "point", x: 60, y: 80, tail: [0, 0]});
+  assert.deepEqual(editArrow(g, [0, 0], [99999, 99999], "move", s), {type: "point", x: s.width, y: s.height, tail: [s.width - 60, s.height - 80]});
+  assert.deepEqual(editArrow(g, g.tail, [2500, 7200], "tail", s), {...g, tail: [2500, 7200]});
+  assert.deepEqual(editArrow(g, [g.x, g.y], [2700, 7300], "tip", s), {...g, x: 2700, y: 7300});
+  assert.deepEqual(g.tail, [2544, 7242]);
+  assert.deepEqual(arrowTail({type: "point", x: 100, y: 100}, 2), [85, 85]);
+  for (const tail of [null, [1], [1, 2, 3], ["2", 3], [NaN, 3], [-1, 3], [s.width + 1, 3], [1, s.height + 1], [g.x, g.y]]) {
+    p.annotations[0].geometry = {...g, tail};
+    assert.throws(() => validateProject(p, sections));
+  }
 });
 test("pixel ruler remains legible at every viewer zoom and labels original pixels", () => {
   for (const scale of [0.001, 0.02, 0.067, 0.25, 0.5, 1, 2, 4, 12]) {

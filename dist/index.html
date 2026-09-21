@@ -9,7 +9,7 @@
       content="HER2ST 五张切片的 CIC 形态标注与空间表达对照工作台。"
     />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="style.css?v=20260920-viewer" />
+    <link rel="stylesheet" href="style.css?v=20260921-arrows" />
   </head>
   <body>
     <header class="topbar">
@@ -99,7 +99,7 @@
             <button id="toggle-dock" aria-pressed="true" title="显示或收起阅片面板">☰ 面板</button>
             <button data-tool="pan" class="active" title="移动 M / V">
               ✥ <span>浏览</span><kbd>V</kbd></button
-            ><button data-tool="point" title="单击放置箭头 P" aria-label="箭头 P">
+            ><button data-tool="point" title="拖动绘制箭头 P；拖线身移动，拖两端调整" aria-label="箭头 P">
               ↘ <span>箭头</span><kbd>P</kbd></button
             ><button data-tool="ellipse" title="拖拽画椭圆 E">
               ◯ <span>椭圆</span><kbd>E</kbd></button
@@ -232,7 +232,7 @@
         <li>左侧“切片 / 标注 / 空间表达”切换面板。“面板”按钮可收起侧栏，顶部工具条始终可用。</li>
         <li>滚轮围绕鼠标位置缩放；M / V 移动工具，或空格 + 拖动；右上角总览图可点击或拖动定位。方向键移动视野，Shift + ↑ / ↓ 缩放。</li>
         <li>
-          <b>R / B</b> 选红／蓝箭头，单击结构放置，箭头尖端就是记录位置，每个箭头计 1。<b>P</b> 使用当前颜色；<b>E</b> 拖出椭圆；<b>G</b> 逐点勾画，Enter
+          <b>R / B</b> 选红／蓝箭头，按住鼠标从箭尾拖向目标位置，松开完成；长度和方向由你决定。箭头尖端就是记录位置，每支计 1。拖动已有箭头线身可移动，选中后拖两端小方框可调整；Esc 取消本次绘制或移动。<b>P</b> 使用当前颜色；<b>E</b> 拖出椭圆；<b>G</b> 逐点勾画，Enter
           完成，Esc 取消。
         </li>
         <li>
@@ -273,6 +273,6 @@
       multiple
       hidden
     />
-    <script type="module" src="app.js?v=20260920-viewer"></script>
+    <script type="module" src="app.js?v=20260921-arrows"></script>
   </body>
 </html>
