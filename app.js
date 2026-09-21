@@ -4,6 +4,9 @@ import {
   ARROW_COLORS,
   arrowColor,
   arrowCounts,
+  arrowTail,
+  arrowHit,
+  editArrow,
   pixelRuler,
   clamp,
   screenToImage,
@@ -15,7 +18,7 @@ import {
   toCSV,
   validateProject,
   mergeProjects,
-} from "./core.js?v=20260920-viewer";
+} from "./core.js?v=20260921-arrows";
 const $ = (s) => document.querySelector(s),
   esc = (s) =>
     String(s ?? "").replace(
@@ -139,6 +142,7 @@ function undo(redo = false) {
   Object.assign(project, JSON.parse(from.pop()));
   selected = null;
   draft = null;
+  drag = null;
   drawRole = "new";
   save();
   renderPanels();
@@ -310,37 +314,32 @@ function paintGeometry(g, color, dashed = false) {
   ctx.setLineDash([]);
 }
 function paintArrow(g, color, selected) {
+  const tail = arrowTail(g, view.scale),
+    dx = (tail[0] - g.x) * view.scale, dy = (tail[1] - g.y) * view.scale,
+    length = Math.hypot(dx, dy);
+  if (length < 0.01) return;
+  const ux = dx / length, uy = dy / length, head = Math.min(9, length * 0.4);
   ctx.save();
   ctx.translate(g.x, g.y);
   ctx.scale(1 / view.scale, 1 / view.scale);
   ctx.beginPath();
-  ctx.moveTo(-30, -30);
-  ctx.lineTo(-6, -6);
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 6;
-  ctx.lineCap = "round";
-  ctx.stroke();
+  ctx.moveTo(dx, dy);
+  ctx.lineTo(0, 0);
+  ctx.moveTo(head * (ux - uy * 0.55), head * (uy + ux * 0.55));
+  ctx.lineTo(0, 0);
+  ctx.lineTo(head * (ux + uy * 0.55), head * (uy - ux * 0.55));
   ctx.strokeStyle = color;
-  ctx.lineWidth = 3;
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.lineTo(-4, -15);
-  ctx.lineTo(-15, -4);
-  ctx.closePath();
   ctx.lineWidth = 1.5;
-  ctx.strokeStyle = "#fff";
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
   ctx.stroke();
-  ctx.fillStyle = color;
-  ctx.fill();
   if (selected) {
-    ctx.beginPath();
-    ctx.arc(-30, -30, 6, 0, Math.PI * 2);
     ctx.fillStyle = "#fff";
-    ctx.fill();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
-    ctx.stroke();
+    ctx.lineWidth = 1;
+    for (const [x, y] of [[dx, dy], [0, 0]]) {
+      ctx.fillRect(x - 2.5, y - 2.5, 5, 5);
+      ctx.strokeRect(x - 2.5, y - 2.5, 5, 5);
+    }
   }
   ctx.restore();
 }
@@ -400,7 +399,7 @@ function draw() {
   if (showMarks)
     for (const a of annotations()) {
       const isArrow = a.geometry.type === "point";
-      if (isArrow) paintArrow(a.geometry, ARROW_COLORS[arrowColor(a)], a.id === selected);
+      if (isArrow) paintArrow(drag?.type === "edit-arrow" && drag.id === a.id && draft ? draft : a.geometry, ARROW_COLORS[arrowColor(a)], a.id === selected);
       else paintGeometry(a.geometry, COLORS[a.label]);
       if (a.outer) paintGeometry(a.outer, "#52bfe0", true);
       a.inner.forEach((g) => paintGeometry(g, "#e592ca", true));
@@ -431,8 +430,9 @@ function draw() {
         ctx.setLineDash([]);
       }
     }
-  if (draft) {
-    if (draft.type === "polygon") {
+  if (draft && drag?.type !== "edit-arrow") {
+    if (draft.type === "point") paintArrow(draft, ARROW_COLORS[markerColor], false);
+    else if (draft.type === "polygon") {
       ctx.strokeStyle = "#225b47";
       ctx.lineWidth = 2 / view.scale;
       ctx.setLineDash([5 / view.scale, 3 / view.scale]);
@@ -546,7 +546,7 @@ function renderPanels() {
     );
   if (!a) {
     $("#selection-panel").innerHTML =
-      '<div class="empty-note"><span>↘</span><strong>一个箭头，一处结构</strong><p>按 R 选红色，B 选蓝色，<br>单击放置箭头，每个计 1。</p></div>';
+      '<div class="empty-note"><span>↘</span><strong>一个箭头，一处结构</strong><p>按 R 选红色，B 选蓝色，<br>从箭尾拖向目标，每支计 1。<br>拖线身移动，选中后拖两端调整。</p></div>';
     renderSpotDetail();
     return;
   }
@@ -568,7 +568,7 @@ function renderPanels() {
         " / ",
       )} px · ${esc(a.annotator || "未填写标注者")}</p><div class="inner-tools"><button data-role="structure">重画范围</button><button data-role="outer">外细胞轮廓${a.outer ? " ✓" : ""}</button><button data-role="inner">＋ 内细胞 (${a.inner.length})</button></div>${a.inner.length || a.outer ? '<button id="clear-contours" class="small">移除内外轮廓</button>' : ""}<p class="micro">选定后用椭圆或多边形绘制。青色 = 外细胞，粉色 = 内细胞。</p><label class="field-label" for="notes">形态依据 / 备注</label><textarea id="notes" maxlength="10000" placeholder="完整包裹、独立细胞核、无法排除的重叠…">${esc(a.notes)}</textarea><p class="micro">${project.exposures[a.section] ? "此切片已接触表达信息" : "本工具中此切片尚未显示表达信息"}</p>`;
   if (a.geometry.type === "point") {
-    $("#selection-panel").insertAdjacentHTML("afterbegin", '<label class="field-label" for="marker-color">所选箭头颜色（计数 1）</label><select id="marker-color"><option value="red">红色</option><option value="blue">蓝色</option></select>');
+    $("#selection-panel").insertAdjacentHTML("afterbegin", '<label class="field-label" for="marker-color">所选箭头颜色（计数 1）</label><select id="marker-color"><option value="red">红色</option><option value="blue">蓝色</option></select><p class="micro">拖动箭头线身可移动；选中后拖动两端小方框可调整长度和方向。Esc 取消本次拖动。</p>');
     $("#marker-color").value = arrowColor(a);
     $("#marker-color").onchange = (e) => update({ markerColor: e.target.value });
   }
@@ -628,6 +628,7 @@ function deleteSelected() {
 function setTool(next, keepRole = false) {
   tool = next;
   draft = null;
+  drag = null;
   if (!keepRole) drawRole = "new";
   document
     .querySelectorAll("[data-tool]")
@@ -637,7 +638,7 @@ function setTool(next, keepRole = false) {
     next === "polygon"
       ? "逐点勾画 · Enter 完成 · Esc 取消"
       : next === "point"
-        ? `单击添加${markerColor === "red" ? "红" : "蓝"}箭头 · 每个计 1 · 空格拖动`
+        ? `拖动绘制${markerColor === "red" ? "红" : "蓝"}箭头 · 拖线身移动 / 两端调整 · 每支计 1`
         : next === "ellipse"
           ? "拖动圈选结构 · 空格拖动"
           : "滚轮缩放 · 空格拖动 · R 红箭头 / B 蓝箭头 · Tab 专注阅片";
@@ -685,10 +686,7 @@ function addGeometry(g) {
 function hitAnnotation(p) {
   for (const a of [...annotations()].reverse()) {
     if (a.geometry.type === "point") {
-      const dx = (p[0] - a.geometry.x) * view.scale,
-        dy = (p[1] - a.geometry.y) * view.scale,
-        t = clamp(-(dx + dy) / 60, 0, 1);
-      if (Math.hypot(dx + 30 * t, dy + 30 * t) <= 9) return a;
+      if (arrowHit(a.geometry, p, view.scale, a.id === selected)) return a;
       continue;
     }
     const b = bounds(a.geometry),
@@ -707,6 +705,21 @@ canvas.addEventListener("pointerdown", (e) => {
   if (!ready || ![0, 1].includes(e.button)) return;
   stage.focus();
   canvas.setPointerCapture(e.pointerId);
+  const p = pixel(e);
+  if (!space && e.button === 0 && showMarks && ["pan", "point"].includes(tool)) {
+    const a = hitAnnotation(screenToImage(screen(e), view));
+    if (a?.geometry.type === "point") {
+      const part = arrowHit(a.geometry, screenToImage(screen(e), view), view.scale, a.id === selected);
+      const tail = arrowTail(a.geometry, view.scale).map((v, i) => clamp(v, 0, i ? section.height : section.width));
+      drag = { type: "edit-arrow", id: a.id, part, start: p, geometry: { ...a.geometry, tail } };
+      selected = a.id;
+      drawRole = "new";
+      canvas.style.cursor = part === "move" ? "move" : "crosshair";
+      renderPanels();
+      draw();
+      return;
+    }
+  }
   if (space || tool === "pan" || e.button === 1) {
     drag = {
       type: "pan",
@@ -722,8 +735,12 @@ canvas.addEventListener("pointerdown", (e) => {
     toast("请在原图范围内标注");
     return;
   }
-  const p = pixel(e);
-  if (tool === "point") addGeometry({ type: "point", x: p[0], y: p[1] });
+  if (tool === "point") {
+    selected = null;
+    drag = { type: "arrow", start: p };
+    renderPanels();
+    draw();
+  }
   if (tool === "ellipse") drag = { type: "ellipse", start: p };
   if (tool === "polygon") {
     if (!draft) draft = { type: "polygon", points: [] };
@@ -736,6 +753,15 @@ canvas.addEventListener("pointermove", (e) => {
   const p = pixel(e);
   $("#cursor-position").textContent =
     `X ${Math.round(p[0])}　Y ${Math.round(p[1])}`;
+  if (["arrow", "edit-arrow"].includes(drag?.type)) {
+    previewArrow(p);
+    requestDraw();
+  }
+  if (!drag && showMarks && ["pan", "point"].includes(tool)) {
+    const a = hitAnnotation(screenToImage(screen(e), view));
+    const part = a?.geometry.type === "point" && arrowHit(a.geometry, p, view.scale, a.id === selected);
+    canvas.style.cursor = space ? "grab" : part === "move" ? "move" : part ? "crosshair" : tool === "pan" ? "grab" : "crosshair";
+  }
   if (drag?.type === "pan") {
     const q = screen(e),
       dx = q[0] - drag.start[0],
@@ -756,13 +782,31 @@ canvas.addEventListener("pointermove", (e) => {
     requestDraw();
   }
 });
+function previewArrow(p) {
+  if (Math.hypot(p[0] - drag.start[0], p[1] - drag.start[1]) * view.scale < 3) {
+    draft = null;
+    return;
+  }
+  draft = drag.type === "arrow"
+    ? { type: "point", x: p[0], y: p[1], tail: [...drag.start] }
+    : editArrow(drag.geometry, drag.start, p, drag.part, section);
+}
 canvas.addEventListener("pointerup", (e) => {
+  if (["arrow", "edit-arrow"].includes(drag?.type)) {
+    previewArrow(pixel(e));
+    const valid = draft && validGeometry(draft, section) && (drag.part === "move" || Math.hypot(draft.x - draft.tail[0], draft.y - draft.tail[1]) * view.scale >= 6);
+    if (valid) {
+      if (drag.type === "arrow") addGeometry(draft);
+      else update({ geometry: draft });
+    } else if (drag.type === "arrow") toast("按住鼠标，从箭尾拖向目标位置，松开完成（至少 6 像素）");
+    draft = null;
+  }
   if (drag?.type === "ellipse" && draft) {
     if (draft.rx * view.scale > 3 && draft.ry * view.scale > 3)
       addGeometry(draft);
     else {
       draft = null;
-      toast("拖动至少 6 像素，或用 P 单击标记");
+      toast("拖动至少 6 像素，或用 P 拖动绘制箭头");
     }
   }
   if (drag?.type === "pan" && !drag.moved && drag.select) {
@@ -791,6 +835,7 @@ canvas.addEventListener(
   "wheel",
   (e) => {
     e.preventDefault();
+    if (drag) return;
     zoom(Math.exp(-e.deltaY * 0.0015), screen(e));
   },
   { passive: false },
@@ -1166,6 +1211,8 @@ async function exportCSV() {
       "geometry_json",
       "marker_color",
       "arrow_count",
+      "arrow_tail_x_px",
+      "arrow_tail_y_px",
       "outer_cell_json",
       "inner_cells_json",
       "nearest_spot_id",
@@ -1206,6 +1253,8 @@ async function exportCSV() {
         geometry_json: JSON.stringify(a.geometry),
         marker_color: a.geometry.type === "point" ? arrowColor(a) : "",
         arrow_count: a.geometry.type === "point" ? 1 : 0,
+        arrow_tail_x_px: a.geometry.tail?.[0] ?? "",
+        arrow_tail_y_px: a.geometry.tail?.[1] ?? "",
         outer_cell_json: JSON.stringify(a.outer),
         inner_cells_json: JSON.stringify(a.inner),
         nearest_spot_id: n?.spot.id || "",
@@ -1251,7 +1300,7 @@ function exportGeoJSON() {
     features.push({
       type: "Feature",
       geometry: geometryToGeoJSON(a.geometry),
-      properties: { ...props, role: "structure", marker_color: a.geometry.type === "point" ? arrowColor(a) : null, arrow_count: a.geometry.type === "point" ? 1 : 0 },
+      properties: { ...props, role: "structure", marker_color: a.geometry.type === "point" ? arrowColor(a) : null, arrow_count: a.geometry.type === "point" ? 1 : 0, arrow_tail_px: a.geometry.tail || null },
     });
     if (a.outer)
       features.push({
@@ -1547,6 +1596,7 @@ document.addEventListener("keydown", (e) => {
     return;
   }
   if (!ready) return;
+  if (drag) { e.preventDefault(); return; }
   if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key) && e.target === stage) {
     e.preventDefault();
     if (e.shiftKey && ["ArrowUp", "ArrowDown"].includes(e.key)) zoom(e.key === "ArrowUp" ? 1.4 : 1 / 1.4);
@@ -1587,7 +1637,10 @@ document.addEventListener("keyup", (e) => {
 });
 window.addEventListener("blur", () => {
   space = false;
+  if (drag) draft = null;
   drag = null;
+  canvas.style.cursor = tool === "pan" ? "grab" : "crosshair";
+  draw();
 });
 window.addEventListener("storage", (e) => {
   if (e.key === storageKey && e.newValue) {
